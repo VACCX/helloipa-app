@@ -1,0 +1,62 @@
+name: build-ipa
+
+on:
+  push:
+    paths:
+      - "HelloIPA/**"
+      - ".github/workflows/build-ipa.yml"
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: "PRODUCT_BUNDLE_IDENTIFIER"
+        required: false
+        default: "com.quqi.helloipa"
+
+jobs:
+  build:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: HelloIPA
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 环境
+        run: |
+          xcodebuild -version
+          node -v
+
+      - name: 静态校验工程
+        run: node scripts/check-project.mjs
+
+      - name: archive（未签名）
+        env:
+          BUNDLE_ID: ${{ github.event.inputs.bundle_id || 'com.quqi.helloipa' }}
+        run: |
+          xcodebuild \
+            -project HelloIPA.xcodeproj \
+            -scheme HelloIPA \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/HelloIPA.xcarchive \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            clean archive
+
+      - name: 打包 ipa
+        run: |
+          node scripts/make-ipa.mjs \
+            build/HelloIPA.xcarchive/Products/Applications/HelloIPA.app \
+            build/HelloIPA-unsigned.ipa
+
+      - name: 校验产物结构
+        run: |
+          unzip -l build/HelloIPA-unsigned.ipa
+          unzip -l build/HelloIPA-unsigned.ipa | grep -q 'Payload/HelloIPA.app/Info.plist' || (echo "缺少 Info.plist" && exit 1)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HelloIPA-unsigned-ipa
+          path: HelloIPA/build/HelloIPA-unsigned.ipa
+          if-no-files-found: error
