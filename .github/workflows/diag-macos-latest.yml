@@ -1,0 +1,7 @@
+name: diag-macos-latest
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: macos-latest
+    steps:
+      - run: echo ok; uname -a
