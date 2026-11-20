@@ -1,0 +1,9 @@
+name: diag-macos
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: macos-14
+    steps:
+      - run: |
+          echo "runner ok"
+          uname -a
